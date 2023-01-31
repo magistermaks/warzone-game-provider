@@ -1,6 +1,6 @@
-package io.github.pseudodistant.provider.services;
+package net.darktree.loader.provider.services;
 
-import io.github.pseudodistant.provider.patch.ExampleEntrypointPatch;
+import net.darktree.loader.provider.patch.WarzoneEntrypointPatch;
 import net.fabricmc.loader.impl.FormattedException;
 import net.fabricmc.loader.impl.game.GameProvider;
 import net.fabricmc.loader.impl.game.GameProviderHelper;
@@ -21,12 +21,10 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.zip.ZipFile;
 
-public class ExampleGameProvider implements GameProvider {
+public class WarzoneGameProvider implements GameProvider {
 
-	/* Define our entrypoint classes, we will be using these to allow ModInitializer to work, as well as to start the game.
-	 * (At least one of these should have the main method, so that the game can start.)
-	 */
-	private static final String[] ENTRYPOINTS = new String[]{"com.mojang.mario.FullScreenFrameLauncher"};
+	private static final String[] ENTRYPOINTS = {"net.darktree.warzone.Main"};
+
 	// Set our game's arguments (This variable isn't necessary, but makes the process a lot easier).
 	private static final Set<String> SENSITIVE_ARGS = new HashSet<>(Arrays.asList(
 			// List of all of our arguments, all lowercase, and without --
@@ -46,18 +44,18 @@ public class ExampleGameProvider implements GameProvider {
 
 	// Apply our patches, for the sake of incorporating ModInitializer hooks, or to patch branding.
 	private static final GameTransformer TRANSFORMER = new GameTransformer(
-			new ExampleEntrypointPatch());
+			new WarzoneEntrypointPatch());
 	
 	@Override
 	// Fabric GameProvider method for setting the modid for the game (For Minecraft, this is `minecraft`).
 	public String getGameId() {
-		return "example-game";
+		return "warzone";
 	}
 
 	@Override
 	// Fabric GameProvider method for setting the pretty name for the game (The ones that ModMenu likes to use).
 	public String getGameName() {
-		return "Example Game";
+		return "Warzone";
 	}
 
 	@Override
@@ -265,4 +263,5 @@ public class ExampleGameProvider implements GameProvider {
 	private static Path getLaunchDirectory(Arguments arguments) {
 		return Paths.get(arguments.getOrDefault("gameDir", "."));
 	}
+
 }
