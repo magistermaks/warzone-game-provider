@@ -5,8 +5,6 @@ plugins {
 	id 'application'
 }
 
-def ENV = System.getenv()
-
 repositories {
 	mavenCentral()
 	maven {

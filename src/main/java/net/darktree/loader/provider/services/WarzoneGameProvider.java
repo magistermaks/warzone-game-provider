@@ -1,6 +1,9 @@
 package net.darktree.loader.provider.services;
 
 import net.darktree.loader.provider.patch.WarzoneEntrypointPatch;
+import net.darktree.loader.provider.util.WarzoneLogHandler;
+import net.fabricmc.loader.api.VersionParsingException;
+import net.fabricmc.loader.api.metadata.ModDependency;
 import net.fabricmc.loader.impl.FormattedException;
 import net.fabricmc.loader.impl.game.GameProvider;
 import net.fabricmc.loader.impl.game.GameProviderHelper;
@@ -8,8 +11,10 @@ import net.fabricmc.loader.impl.game.patch.GameTransformer;
 import net.fabricmc.loader.impl.launch.FabricLauncher;
 import net.fabricmc.loader.impl.metadata.BuiltinModMetadata;
 import net.fabricmc.loader.impl.metadata.ContactInformationImpl;
+import net.fabricmc.loader.impl.metadata.ModDependencyImpl;
 import net.fabricmc.loader.impl.util.Arguments;
 import net.fabricmc.loader.impl.util.SystemProperties;
+import net.fabricmc.loader.impl.util.log.Log;
 import net.fabricmc.loader.impl.util.version.StringVersion;
 
 import java.lang.reflect.InvocationTargetException;
@@ -23,15 +28,13 @@ import java.util.zip.ZipFile;
 
 public class WarzoneGameProvider implements GameProvider {
 
-	private static final String[] ENTRYPOINTS = {"net.darktree.warzone.Main"};
+	static {
+		// here just so that the very first line printer by fabric
+		// uses the correct and consistent formatting
+		Log.init(new WarzoneLogHandler());
+	}
 
-	// Set our game's arguments (This variable isn't necessary, but makes the process a lot easier).
-	private static final Set<String> SENSITIVE_ARGS = new HashSet<>(Arrays.asList(
-			// List of all of our arguments, all lowercase, and without --
-			"list",
-			"of",
-			"game",
-			"arguments"));
+	private static final String[] ENTRYPOINTS = {"net.darktree.warzone.Main"};
 	
 	private Arguments arguments;
 	private String entrypoint;
@@ -39,70 +42,72 @@ public class WarzoneGameProvider implements GameProvider {
 	private Path libDir;
 	private Path gameJar;
 	private boolean development = false;
-	private final List<Path> miscGameLibraries = new ArrayList<>();
+	private final List<Path> libraries = new ArrayList<>();
 	private static final StringVersion gameVersion = new StringVersion("1.0.0");
 
 	// Apply our patches, for the sake of incorporating ModInitializer hooks, or to patch branding.
-	private static final GameTransformer TRANSFORMER = new GameTransformer(
-			new WarzoneEntrypointPatch());
+	private static final GameTransformer TRANSFORMER = new GameTransformer(new WarzoneEntrypointPatch());
 	
 	@Override
-	// Fabric GameProvider method for setting the modid for the game (For Minecraft, this is `minecraft`).
 	public String getGameId() {
 		return "warzone";
 	}
 
 	@Override
-	// Fabric GameProvider method for setting the pretty name for the game (The ones that ModMenu likes to use).
 	public String getGameName() {
 		return "Warzone";
 	}
 
 	@Override
-	// Set the version string of the game, simple as that.
 	public String getRawGameVersion() {
+		// Set the version string of the game, simple as that.
 		return gameVersion.getFriendlyString();
 	}
 
 	@Override
-	// Set a SemVer-compliant string so that mods can see if they're compatible with the version being loaded.
 	public String getNormalizedGameVersion() {
+		// Set a SemVer-compliant string so that mods can see if they're compatible with the version being loaded.
 		return getRawGameVersion();
 	}
 
-	@Override
-	/* This is where we actually set the game's metadata, including the modid, the version, the author, and any
+	/**
+	 * This is where we actually set the game's metadata, including the modid, the version, the author, and any
 	 * other relevant metadata to the game.
 	 */
+	@Override
 	public Collection<BuiltinMod> getBuiltinMods() {
-		HashMap<String, String> exampleContactInformation = new HashMap<>();
-		exampleContactInformation.put("homepage", "https://insert.website.here/");
-		exampleContactInformation.put("wiki", "https://insert.website.here/wiki/");
-		exampleContactInformation.put("issues", "idk some issue link");
+		HashMap<String, String> info = new HashMap<>();
+		info.put("homepage", "darktree.net");
+		info.put("issues", "https://github.com/dark-tree/warzone/issues");
 
-		BuiltinModMetadata.Builder exampleMetadata =
+		BuiltinModMetadata.Builder metadata =
 				new BuiltinModMetadata.Builder(getGameId(), getNormalizedGameVersion())
 				.setName(getGameName())
-				.addAuthor("ExampleAuthor", exampleContactInformation)
-				.setContact(new ContactInformationImpl(exampleContactInformation))
-				.setDescription("A very brief, yet informative, description of the game.");
+				.addAuthor("magistermaks", info)
+				.setContact(new ContactInformationImpl(info))
+				.setDescription("The core of the Warzone game.");
 
+		try {
+			metadata.addDependency(new ModDependencyImpl(ModDependency.Kind.DEPENDS, "java", Collections.singletonList(">=17")));
+		} catch (VersionParsingException e) {
+			throw new RuntimeException(e);
+		}
 
-		return Collections.singletonList(new BuiltinMod(Collections.singletonList(gameJar), exampleMetadata.build()));
+		return Collections.singletonList(new BuiltinMod(Collections.singletonList(gameJar), metadata.build()));
 	}
 
 	@Override
-	// Getter for entrypoint.
 	public String getEntrypoint() {
 		return entrypoint;
 	}
 
-	@Override
-	/* Get the game's launch directory. This is especially useful if the game has a launcher that
+	/**
+	 * Get the game's launch directory. This is especially useful if the game has a launcher that
 	 * launches it from a specific directory, like Minecraft.
 	 * For any game that's run with a `java -jar` command, we can usually just set it to the current working
 	 * directory, which can be called with "." or just a filename like "game.jar"
 	 */
+	@Override
 	public Path getLaunchDirectory() {
 		if (arguments == null) {
 			return Paths.get(".");
@@ -111,7 +116,6 @@ public class WarzoneGameProvider implements GameProvider {
 	}
 
 	@Override
-	// Is the game obfuscated, as in does it need an intermediary?
 	public boolean isObfuscated() {
 		return false;
 	}
@@ -126,14 +130,15 @@ public class WarzoneGameProvider implements GameProvider {
 		return true;
 	}
 
-	@Override
-	/* Where is the game's Jar file?
+	/**
+	 * Where is the game's Jar file?
 	 * This is needed because instead of launching the game, you're actually launching Fabric (Knot, specifically).
 	 * Fabric needs to know where the game is so Fabric can actually start it.
 	 */
+	@Override
 	public boolean locateGame(FabricLauncher launcher, String[] args) {
 		this.arguments = new Arguments();
-		arguments.parse(args);
+		this.arguments.parse(args);
 		
 		Map<Path, ZipFile> zipFiles = new HashMap<>();
 		
@@ -143,10 +148,12 @@ public class WarzoneGameProvider implements GameProvider {
 		
 		try {
 			String gameJarProperty = System.getProperty(SystemProperties.GAME_JAR_PATH);
-			GameProviderHelper.FindResult result = null;
-			if(gameJarProperty == null) {
+
+			GameProviderHelper.FindResult result;
+			if (gameJarProperty == null) {
 				gameJarProperty = "./game.jar";
 			}
+
 			Path path = Paths.get(gameJarProperty);
 			if (!Files.exists(path)) {
 				throw new RuntimeException("Game jar configured through " + SystemProperties.GAME_JAR_PATH + " system property doesn't exist");
@@ -154,7 +161,7 @@ public class WarzoneGameProvider implements GameProvider {
 
 			result = GameProviderHelper.findFirst(Collections.singletonList(path), zipFiles, true, ENTRYPOINTS);
 
-			if(result == null) {
+			if (result == null) {
 				return false;
 			}
 			
@@ -166,9 +173,7 @@ public class WarzoneGameProvider implements GameProvider {
 		}
 		
 		processArgumentMap(arguments);
-
 		return true;
-		
 	}
 
 	@Override
@@ -178,6 +183,8 @@ public class WarzoneGameProvider implements GameProvider {
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
 		}
+
+		Log.init(new WarzoneLogHandler());
 		TRANSFORMER.locateEntrypoints(launcher, Collections.singletonList(gameJar));
 	}
 
@@ -186,18 +193,22 @@ public class WarzoneGameProvider implements GameProvider {
 		return TRANSFORMER;
 	}
 
+	/**
+	 * Add the game to the classpath, as well as any of the game's dependencies.
+	 */
 	@Override
-	// Add the game to the classpath, as well as any of the game's dependencies.
 	public void unlockClassPath(FabricLauncher launcher) {
 		launcher.addToClassPath(gameJar);
 		
-		for(Path lib : miscGameLibraries) {
+		for (Path lib : libraries) {
 			launcher.addToClassPath(lib);
 		}
 	}
 
+	/**
+	 * Start the game using Fabric Loader.
+	 */
 	@Override
-	// Start the game using Fabric Loader.
 	public void launch(ClassLoader loader) {
 		String targetClass = entrypoint;
 		
@@ -205,49 +216,27 @@ public class WarzoneGameProvider implements GameProvider {
 			Class<?> c = loader.loadClass(targetClass);
 			Method m = c.getMethod("main", String[].class);
 			m.invoke(null, (Object) arguments.toArray());
-		}
-		catch(InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
 			throw new FormattedException("The game has crashed!", e.getCause());
-		}
-		catch(ReflectiveOperationException e) {
+		} catch (ReflectiveOperationException e) {
 			throw new FormattedException("Failed to start the game", e);
 		}
 	}
 
 	@Override
-	// Getter for arguments.
 	public Arguments getArguments() {
 		return arguments;
 	}
 
-	@Override
-	/* Gets the arguments being passed to Fabric Loader, so for
+	/**
+	 * Gets the arguments being passed to Fabric Loader, so for
 	 * ... net.fabricmc.loader.launch.knot.KnotClient --debug true
 	 * the state of --debug can be called from here.
 	 */
+	@Override
 	public String[] getLaunchArguments(boolean sanitize) {
 		if (arguments == null) return new String[0];
-
-		String[] ret = arguments.toArray();
-		if (!sanitize) return ret;
-
-		int writeIdx = 0;
-
-		for (int i = 0; i < ret.length; i++) {
-			String arg = ret[i];
-
-			if (i + 1 < ret.length
-					&& arg.startsWith("--")
-					&& SENSITIVE_ARGS.contains(arg.substring(2).toLowerCase(Locale.ENGLISH))) {
-				i++; // skip value
-			} else {
-				ret[writeIdx++] = arg;
-			}
-		}
-
-		if (writeIdx < ret.length) ret = Arrays.copyOf(ret, writeIdx);
-
-		return ret;
+		return arguments.toArray();
 	}
 	
 	private void processArgumentMap(Arguments arguments) {
