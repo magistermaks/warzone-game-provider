@@ -16,11 +16,11 @@ sourceCompatibility = '17'
 targetCompatibility = '17'
 
 dependencies {
-	implementation "net.fabricmc:fabric-loader:${project.loaderVersion}"
-	implementation "net.fabricmc:sponge-mixin:${project.mixinVersion}"
-	implementation "net.fabricmc:access-widener:${project.awVersion}"
-	implementation "net.fabricmc:tiny-mappings-parser:${project.tmpVersion}"
-	implementation "net.fabricmc:tiny-remapper:${project.trVersion}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc:sponge-mixin:${project.mixin_version}"
+	implementation "net.fabricmc:access-widener:${project.access_widener_version}"
+	implementation "net.fabricmc:tiny-mappings-parser:${project.tiny_mapping_parser_version}"
+	implementation "net.fabricmc:tiny-remapper:${project.tiny_remapper_version}"
 }
 
 application {
